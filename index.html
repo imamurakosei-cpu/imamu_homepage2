@@ -4,20 +4,20 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>imamu's homepage</title>
-    
-    <style>
-        html, body {
-            height: 100%;                  /* 重要：htmlとbodyの両方に設定 */
-            margin: 0;
-            padding: 0;
-            overflow-y: auto;              /* スクロールを強制的に有効化 */
-        }
 
+    <!-- Firebase SDK -->
+    <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-firestore-compat.js"></script>
+
+    <style>
         body {
             background: #0a001f;
+            margin: 0;
+            padding: 0;
+            overflow-y: auto;
+            min-height: 100vh;
             color: #696969;
             font-family: "MS PGothic", "Hiragino Sans", sans-serif;
-            line-height: 1.6;
         }
 
         .background-gif {
@@ -52,46 +52,20 @@
             padding: 15px;
             margin-bottom: 15px;
             border-left: 6px solid #66ffff;
-        }
-        .blog-date { color: #888; font-size: 14px; }
-
-        /* 投稿フォーム */
-        input[type="text"], textarea {
-            width: 100%;
-            padding: 12px;
-            margin: 10px 0;
-            border: 2px solid #696969;
-        }
-        button {
-            padding: 12px 25px;
-            background: #66ffff;
-            color: #000;
-            border: none;
-            margin: 5px;
             cursor: pointer;
         }
+        .blog-date { color: #888; font-size: 14px; }
+        .blog-image { max-width: 100%; margin: 10px 0; border-radius: 4px; }
 
-        /* 全文表示モーダル */
-        #modal {
+        .full-content {
             display: none;
-            position: fixed;
-            top: 0; left: 0;
-            width: 100%; height: 100%;
-            background: rgba(0,0,0,0.85);
-            z-index: 1000;
-            align-items: center;
-            justify-content: center;
+            margin-top: 15px;
+            padding-top: 15px;
+            border-top: 2px dashed #ddd;
+            white-space: pre-wrap;
+            line-height: 1.7;
         }
-        .modal-content {
-            background: #fff;
-            max-width: 700px;
-            width: 90%;
-            padding: 30px;
-            border-radius: 8px;
-            max-height: 85vh;
-            overflow-y: auto;
-        }
-        .modal-close { float: right; font-size: 28px; cursor: pointer; color: #696969; }
+        .blog-item.expanded .full-content { display: block; }
     </style>
 </head>
 <body>
@@ -149,18 +123,21 @@
         <button onclick="cancelPost()" style="background:#ccc;">キャンセル</button>
     </div>
 
-    <!-- 全文表示モーダル -->
-    <div id="modal">
-        <div class="modal-content">
-            <span class="modal-close" onclick="closeModal()">×</span>
-            <div id="modalDate" style="color:#888; font-size:14px;"></div>
-            <h2 id="modalTitle" style="margin:10px 0 15px;"></h2>
-            <img id="modalImage" style="max-width:100%; margin:10px 0; display:none;">
-            <div id="modalContent" style="white-space: pre-wrap; line-height:1.7;"></div>
-        </div>
-    </div>
-
     <script>
+        // ====================== Firebase設定 ======================
+        const firebaseConfig = {
+            apiKey: "AIzaSyA6ljR86oqQjyzTdhI53zaKuRSzNryw3sw",
+            authDomain: "imamu-homepage.firebaseapp.com",
+            projectId: "imamu-homepage",
+            storageBucket: "imamu-homepage.firebasestorage.app",
+            messagingSenderId: "922053214221",
+            appId: "1:922053214221:web:8eae331790efbc08025544",
+            measurementId: "G-RRJZ8MGGCK"
+        };
+
+        const app = firebase.initializeApp(firebaseConfig);
+        const db = firebase.firestore();
+
         // ====================== 背景GIF ======================
         const bgGif = document.getElementById('bgGif');
         let isReversed = false;
@@ -172,28 +149,37 @@
         setInterval(switchGif, 5000);
 
         // ====================== ブログ機能 ======================
-        let posts = JSON.parse(localStorage.getItem('blogPosts')) || [];
+        let posts = [];
 
         function renderBlogList() {
             const container = document.getElementById('blogList');
             container.innerHTML = '';
-            if (posts.length === 0) {
-                container.innerHTML = '<p style="text-align:center; color:#888;">まだ記事がありません。</p>';
-                return;
-            }
-            posts.forEach((post, index) => {
-                const div = document.createElement('div');
-                div.className = 'blog-item';
-                div.innerHTML = `
-                    <div class="blog-date">${post.date}</div>
-                    <h3>${post.title}</h3>
-                    ${post.image ? `<img src="${post.image}" class="blog-image" style="max-width:100%; margin:10px 0;">` : ''}
-                    <p>${post.content.substring(0, 80)}...</p>
-                    <button onclick="deletePost(${index}); event.stopImmediatePropagation();" style="background:#ff6666; color:white; font-size:12px; padding:4px 8px; margin-top:8px;">削除</button>
-                `;
-                div.onclick = () => showFullPost(index);
-                container.appendChild(div);
+
+            db.collection("posts").orderBy("timestamp", "desc").get().then((querySnapshot) => {
+                if (querySnapshot.empty) {
+                    container.innerHTML = '<p style="text-align:center; color:#888;">まだ記事がありません。</p>';
+                    return;
+                }
+                querySnapshot.forEach((doc) => {
+                    const post = doc.data();
+                    const div = document.createElement('div');
+                    div.className = 'blog-item';
+                    div.innerHTML = `
+                        <div class="blog-date">${post.date}</div>
+                        <h3>${post.title}</h3>
+                        ${post.image ? `<img src="${post.image}" class="blog-image" style="max-width:100%; margin:10px 0;">` : ''}
+                        <p>${post.content.substring(0, 80)}...</p>
+                        <div class="full-content">${post.content}</div>
+                        <button onclick="deletePost('${doc.id}'); event.stopImmediatePropagation();" style="background:#ff6666; color:white; font-size:12px; padding:4px 8px; margin-top:8px;">削除</button>
+                    `;
+                    div.onclick = () => toggleFullContent(div);
+                    container.appendChild(div);
+                });
             });
+        }
+
+        function toggleFullContent(element) {
+            element.classList.toggle('expanded');
         }
 
         function savePost() {
@@ -207,21 +193,22 @@
                 return;
             }
 
-            const newPost = { date: new Date().toISOString().slice(0,10), title, content, image: null };
+            const newPost = {
+                date: new Date().toISOString().slice(0,10),
+                title: title,
+                content: content,
+                timestamp: firebase.firestore.FieldValue.serverTimestamp()
+            };
 
             if (file) {
                 const reader = new FileReader();
                 reader.onload = e => {
                     newPost.image = e.target.result;
-                    posts.unshift(newPost);
-                    localStorage.setItem('blogPosts', JSON.stringify(posts));
-                    finishSave();
+                    db.collection("posts").add(newPost).then(finishSave);
                 };
                 reader.readAsDataURL(file);
             } else {
-                posts.unshift(newPost);
-                localStorage.setItem('blogPosts', JSON.stringify(posts));
-                finishSave();
+                db.collection("posts").add(newPost).then(finishSave);
             }
         }
 
@@ -231,32 +218,12 @@
             renderBlogList();
         }
 
-        function deletePost(index) {
-            if (confirm("本当に削除しますか？")) {
-                posts.splice(index, 1);
-                localStorage.setItem('blogPosts', JSON.stringify(posts));
-                renderBlogList();
+        function deletePost(docId) {
+            if (confirm("本当にこの記事を削除しますか？")) {
+                db.collection("posts").doc(docId).delete().then(() => {
+                    renderBlogList();
+                });
             }
-        }
-
-        function showFullPost(index) {
-            const post = posts[index];
-            document.getElementById('modalDate').textContent = post.date;
-            document.getElementById('modalTitle').textContent = post.title;
-            document.getElementById('modalContent').textContent = post.content;
-
-            const img = document.getElementById('modalImage');
-            if (post.image) {
-                img.src = post.image;
-                img.style.display = 'block';
-            } else {
-                img.style.display = 'none';
-            }
-            document.getElementById('modal').style.display = 'flex';
-        }
-
-        function closeModal() {
-            document.getElementById('modal').style.display = 'none';
         }
 
         function showPostForm() {
@@ -282,8 +249,6 @@
             document.getElementById('blogPage').style.display = 'none';
             document.getElementById('mainPage').style.display = 'block';
         }
-
-        window.onload = renderBlogList;
     </script>
 </body>
 </html>
