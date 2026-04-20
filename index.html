@@ -1,0 +1,289 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>imamu's homepage</title>
+    
+    <style>
+        html, body {
+            height: 100%;                  /* 重要：htmlとbodyの両方に設定 */
+            margin: 0;
+            padding: 0;
+            overflow-y: auto;              /* スクロールを強制的に有効化 */
+        }
+
+        body {
+            background: #0a001f;
+            color: #696969;
+            font-family: "MS PGothic", "Hiragino Sans", sans-serif;
+            line-height: 1.6;
+        }
+
+        .background-gif {
+            position: fixed;
+            top: 0; left: 0;
+            width: 100vw;
+            height: 100vh;
+            object-fit: cover;
+            z-index: -1;
+            opacity: 0.9;
+        }
+
+        .container {
+            max-width: 720px;
+            margin: 40px auto;
+            background: #a1d8e2;
+            border: 6px solid #696969;
+            padding: 30px;
+            position: relative;
+            z-index: 2;
+        }
+
+        h1 { text-align: center; color: #696969; font-size: 42px; margin-bottom: 10px; }
+        h2 { color: #696969; border-bottom: 3px solid #e6e6fa; padding-bottom: 8px; }
+
+        a { color: #696969; text-decoration: none; }
+        a:hover { color: #ffffff; text-decoration: underline; }
+
+        .blog-list { margin-top: 20px; }
+        .blog-item {
+            background: white;
+            padding: 15px;
+            margin-bottom: 15px;
+            border-left: 6px solid #66ffff;
+        }
+        .blog-date { color: #888; font-size: 14px; }
+
+        /* 投稿フォーム */
+        input[type="text"], textarea {
+            width: 100%;
+            padding: 12px;
+            margin: 10px 0;
+            border: 2px solid #696969;
+        }
+        button {
+            padding: 12px 25px;
+            background: #66ffff;
+            color: #000;
+            border: none;
+            margin: 5px;
+            cursor: pointer;
+        }
+
+        /* 全文表示モーダル */
+        #modal {
+            display: none;
+            position: fixed;
+            top: 0; left: 0;
+            width: 100%; height: 100%;
+            background: rgba(0,0,0,0.85);
+            z-index: 1000;
+            align-items: center;
+            justify-content: center;
+        }
+        .modal-content {
+            background: #fff;
+            max-width: 700px;
+            width: 90%;
+            padding: 30px;
+            border-radius: 8px;
+            max-height: 85vh;
+            overflow-y: auto;
+        }
+        .modal-close { float: right; font-size: 28px; cursor: pointer; color: #696969; }
+    </style>
+</head>
+<body>
+
+    <img id="bgGif" class="background-gif" src="cloud3.gif" alt="">
+
+    <!-- ホーム画面 -->
+    <div class="container" id="mainPage">
+        <h1>imamu_homepage</h1>
+        <p style="text-align:center; font-size:18px;">ようこそ！imamuのホームページへ！</p>
+
+        <h2>◆ Profile</h2>
+        <p>こんにちは、mamuです。<br>インターネットでは何ができるかな？<br>模索するためにとりあえずホームページを作りました。</p>
+
+        <h2>◆ Links</h2>
+        <ul>
+            <li><a href="#">→ 秘密の部屋</a></li>
+            <li><a href="#" onclick="showBlogList()">→ ブログ日記</a></li>
+            <li><a href="#">→ 思い出のフォト</a></li>
+            <li><a href="#">→ imamu_to_do_list をダウンロード</a></li>
+        </ul>
+
+        <p style="text-align:center; margin-top:40px;">
+            <a href="#" style="font-size:22px; background:#9eceff; color:white; padding:15px 40px; border:4px solid #66ffff;">
+                今すぐダウンロード
+            </a>
+        </p>
+
+        <p style="text-align:center; margin-top:60px; font-size:14px; color:#a9a9a9;">
+            © 2026 imamu All Rights Reserved
+        </p>
+    </div>
+
+    <!-- ブログ日記一覧 -->
+    <div class="container" id="blogPage" style="display:none;">
+        <h1>ブログ日記</h1>
+        <p style="text-align:center;">
+            <a href="#" onclick="backToMain()">← ホームに戻る</a> | 
+            <a href="#" onclick="showPostForm()">→ 新規投稿</a>
+        </p>
+        <div id="blogList" class="blog-list"></div>
+    </div>
+
+    <!-- 新規投稿フォーム -->
+    <div class="container" id="postForm" style="display:none;">
+        <h1>新しい記事を書く</h1>
+        <input type="text" id="postTitle" placeholder="タイトルを入力">
+        <textarea id="postContent" rows="10" placeholder="本文を入力"></textarea>
+        
+        <label>写真を追加：
+            <input type="file" id="postImage" accept="image/*">
+        </label>
+        
+        <button onclick="savePost()">投稿する</button>
+        <button onclick="cancelPost()" style="background:#ccc;">キャンセル</button>
+    </div>
+
+    <!-- 全文表示モーダル -->
+    <div id="modal">
+        <div class="modal-content">
+            <span class="modal-close" onclick="closeModal()">×</span>
+            <div id="modalDate" style="color:#888; font-size:14px;"></div>
+            <h2 id="modalTitle" style="margin:10px 0 15px;"></h2>
+            <img id="modalImage" style="max-width:100%; margin:10px 0; display:none;">
+            <div id="modalContent" style="white-space: pre-wrap; line-height:1.7;"></div>
+        </div>
+    </div>
+
+    <script>
+        // ====================== 背景GIF ======================
+        const bgGif = document.getElementById('bgGif');
+        let isReversed = false;
+        function switchGif() {
+            bgGif.src = isReversed ? "cloud3.gif" : "cloud4.gif";
+            isReversed = !isReversed;
+        }
+        bgGif.src = "cloud3.gif";
+        setInterval(switchGif, 5000);
+
+        // ====================== ブログ機能 ======================
+        let posts = JSON.parse(localStorage.getItem('blogPosts')) || [];
+
+        function renderBlogList() {
+            const container = document.getElementById('blogList');
+            container.innerHTML = '';
+            if (posts.length === 0) {
+                container.innerHTML = '<p style="text-align:center; color:#888;">まだ記事がありません。</p>';
+                return;
+            }
+            posts.forEach((post, index) => {
+                const div = document.createElement('div');
+                div.className = 'blog-item';
+                div.innerHTML = `
+                    <div class="blog-date">${post.date}</div>
+                    <h3>${post.title}</h3>
+                    ${post.image ? `<img src="${post.image}" class="blog-image" style="max-width:100%; margin:10px 0;">` : ''}
+                    <p>${post.content.substring(0, 80)}...</p>
+                    <button onclick="deletePost(${index}); event.stopImmediatePropagation();" style="background:#ff6666; color:white; font-size:12px; padding:4px 8px; margin-top:8px;">削除</button>
+                `;
+                div.onclick = () => showFullPost(index);
+                container.appendChild(div);
+            });
+        }
+
+        function savePost() {
+            const title = document.getElementById('postTitle').value.trim();
+            const content = document.getElementById('postContent').value.trim();
+            const fileInput = document.getElementById('postImage');
+            const file = fileInput.files[0];
+
+            if (!title || !content) {
+                alert("タイトルと本文を入力してください");
+                return;
+            }
+
+            const newPost = { date: new Date().toISOString().slice(0,10), title, content, image: null };
+
+            if (file) {
+                const reader = new FileReader();
+                reader.onload = e => {
+                    newPost.image = e.target.result;
+                    posts.unshift(newPost);
+                    localStorage.setItem('blogPosts', JSON.stringify(posts));
+                    finishSave();
+                };
+                reader.readAsDataURL(file);
+            } else {
+                posts.unshift(newPost);
+                localStorage.setItem('blogPosts', JSON.stringify(posts));
+                finishSave();
+            }
+        }
+
+        function finishSave() {
+            alert("投稿しました！");
+            cancelPost();
+            renderBlogList();
+        }
+
+        function deletePost(index) {
+            if (confirm("本当に削除しますか？")) {
+                posts.splice(index, 1);
+                localStorage.setItem('blogPosts', JSON.stringify(posts));
+                renderBlogList();
+            }
+        }
+
+        function showFullPost(index) {
+            const post = posts[index];
+            document.getElementById('modalDate').textContent = post.date;
+            document.getElementById('modalTitle').textContent = post.title;
+            document.getElementById('modalContent').textContent = post.content;
+
+            const img = document.getElementById('modalImage');
+            if (post.image) {
+                img.src = post.image;
+                img.style.display = 'block';
+            } else {
+                img.style.display = 'none';
+            }
+            document.getElementById('modal').style.display = 'flex';
+        }
+
+        function closeModal() {
+            document.getElementById('modal').style.display = 'none';
+        }
+
+        function showPostForm() {
+            document.getElementById('blogPage').style.display = 'none';
+            document.getElementById('postForm').style.display = 'block';
+        }
+
+        function cancelPost() {
+            document.getElementById('postForm').style.display = 'none';
+            document.getElementById('blogPage').style.display = 'block';
+            document.getElementById('postTitle').value = '';
+            document.getElementById('postContent').value = '';
+            document.getElementById('postImage').value = '';
+        }
+
+        function showBlogList() {
+            document.getElementById('mainPage').style.display = 'none';
+            document.getElementById('blogPage').style.display = 'block';
+            renderBlogList();
+        }
+
+        function backToMain() {
+            document.getElementById('blogPage').style.display = 'none';
+            document.getElementById('mainPage').style.display = 'block';
+        }
+
+        window.onload = renderBlogList;
+    </script>
+</body>
+</html>
